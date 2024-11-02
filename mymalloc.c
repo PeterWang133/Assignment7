@@ -1,3 +1,8 @@
+/**
+ * This file implements basic memory management functions including malloc, calloc,
+ * and free. It uses a linked list of memory blocks with metadata to track allocations
+ * and implements basic block splitting and coalescing strategies.
+ */
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE 
 #include <malloc.h> 
@@ -8,16 +13,40 @@
 
 #include <debug.h> // definition of debug_printf
 
+
 // Node structure for memory block metadata
+ 
 typedef struct node {
     int size;
     bool free_flag;
     struct node* next;
 } node_t;
 
-node_t *head = NULL;
-const int THRESHOLD = 4096;  // Set a threshold for larger allocations to prevent sbrk overuse
 
+// head of the memory block linked list
+node_t *head = NULL;
+
+// threshold size for block splitting
+const int THRESHOLD = 4096;
+
+/**
+ * allocates requested memory
+ * 
+ * Implements a custom malloc function that:
+ * 1. Searches for an existing free block of sufficient size
+ * 2. Splits large free blocks when appropriate
+ * 3. Allocates new memory from the system if no suitable free block exists
+
+  
+ * @param size Number of bytes to allocate
+ * @return void* Pointer to the allocated memory, or NULL if allocation fails
+ 
+ * Assumptions:
+ * - The size parameter is reasonable and not zero
+ * - The linked list structure is not corrupted
+ * - System has sufficient memory available
+ 
+ */
 void *mymalloc(size_t size) {
     node_t *current = head;
     node_t *prev = NULL;
@@ -65,6 +94,23 @@ void *mymalloc(size_t size) {
     return (void *)(new_block + 1);  // Return the address after the metadata
 }
 
+/**
+ * Allocates and zeros memory for an array
+ 
+ * Implements a custom calloc function that:
+ * 1. Calculates total size needed for the array
+ * 2. Allocates memory using mymalloc
+ * 3. Initializes all bytes to zero
+ 
+ * @param nmemb Number of elements to allocate
+ * @param s Size of each element
+ * @return void* Pointer to the zeroed allocated memory, or NULL if allocation fails
+
+ * Assumptions:
+ * - nmemb and s are reasonable values
+ * - Their product doesn't overflow
+ * - Sufficient memory is available
+ */
 void *mycalloc(size_t nmemb, size_t s) {
     size_t total_size = nmemb * s;
     void *p = mymalloc(total_size);
@@ -80,6 +126,22 @@ void *mycalloc(size_t nmemb, size_t s) {
     return p;
 }
 
+/**
+ * Frees allocated memory
+ 
+ * Implements a custom free function that:
+ * 1. Marks the block as free
+ * 2. Coalesces (combines) adjacent free blocks
+ * 3. Maintains the linked list structure
+ 
+ * @param ptr Pointer to memory to be freed
+ 
+ * Assumptions:
+ * - ptr is either NULL or points to a valid allocated block
+ * - The metadata structure is not corrupted
+ * - The linked list structure is maintained
+ 
+ */
 void myfree(void *ptr) {
     if (ptr == NULL) {
         return;
